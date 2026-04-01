@@ -720,6 +720,15 @@
       </div>
       <input type="text" id="utmTerm" placeholder="예: 해산물, 씨몬스터, 수산물" oninput="updatePreview()">
     </div>
+
+    <div class="form-group">
+      <label>비고 <span class="optional">선택 · 내부 메모</span></label>
+      <div class="field-desc">
+        이 URL에 대한 <strong>내부 메모</strong>를 남겨두세요.<br>
+        GA에는 전송되지 않고, 히스토리에서만 확인할 수 있습니다.
+      </div>
+      <input type="text" id="utmNote" placeholder="예: 4월 인플루언서 A 협찬, 네이버 파워링크 2차 소재">
+    </div>
   </div>
 
   <!-- Preview & Actions -->
@@ -1019,6 +1028,7 @@ function saveAndSend() {
     campaign: document.getElementById('utmCampaign').value.trim(),
     content: document.getElementById('utmContent').value.trim(),
     term: document.getElementById('utmTerm').value.trim(),
+    note: document.getElementById('utmNote').value.trim(),
     fullUrl: getFullUrl()
   };
 
@@ -1065,7 +1075,7 @@ function renderHistory() {
   clearRow.style.display = 'flex';
   let html = `<table class="history-table">
     <thead><tr>
-      <th>일시</th><th>Source</th><th>Medium</th><th>Campaign</th><th>URL</th><th>작업</th>
+      <th>일시</th><th>Source</th><th>Medium</th><th>Campaign</th><th>비고</th><th>URL</th><th>작업</th>
     </tr></thead><tbody>`;
 
   history.forEach((item, idx) => {
@@ -1074,6 +1084,7 @@ function renderHistory() {
       <td>${escHtml(item.source)}</td>
       <td>${escHtml(item.medium)}</td>
       <td>${escHtml(item.campaign)}</td>
+      <td style="color:var(--text-sub)">${escHtml(item.note || '')}</td>
       <td class="url-cell" title="${escHtml(item.fullUrl)}" onclick="navigator.clipboard.writeText('${item.fullUrl.replace(/'/g,"\\'")}');showToast('URL 복사됨')">${escHtml(item.fullUrl)}</td>
       <td class="actions">
         <button class="btn btn-danger btn-sm" onclick="deleteHistoryItem(${idx})">삭제</button>
@@ -1105,9 +1116,9 @@ function exportCsv() {
   if (!history.length) return;
 
   const BOM = '\uFEFF';
-  const headers = '생성일시,기본URL,Source,Medium,Campaign,Content,Term,전체URL\n';
+  const headers = '생성일시,기본URL,Source,Medium,Campaign,Content,Term,비고,전체URL\n';
   const rows = history.map(h =>
-    [h.date, h.baseUrl, h.source, h.medium, h.campaign, h.content, h.term, h.fullUrl]
+    [h.date, h.baseUrl, h.source, h.medium, h.campaign, h.content, h.term, h.note, h.fullUrl]
       .map(v => `"${(v||'').replace(/"/g,'""')}"`)
       .join(',')
   ).join('\n');
@@ -1130,6 +1141,7 @@ function resetForm() {
   document.getElementById('utmCampaign').value = '';
   document.getElementById('utmContent').value = '';
   document.getElementById('utmTerm').value = '';
+  document.getElementById('utmNote').value = '';
   document.getElementById('mediumChips').innerHTML = '';
   updatePreview();
   showToast('폼이 초기화되었습니다');
