@@ -1246,13 +1246,16 @@ function saveAndSend() {
     fullUrl: getFullUrl()
   };
 
-  // Save to localStorage
+  // Save to localStorage history
   const history = JSON.parse(localStorage.getItem('sm_utm_history') || '[]');
   history.unshift(data);
   if (history.length > 100) history.pop();
   localStorage.setItem('sm_utm_history', JSON.stringify(history));
   renderHistory();
   updateCampaignSuggestions();
+
+  // 자동 학습: source / medium / landing page 프리셋 자동 추가
+  autoLearnFromUtm(data);
 
   // Copy URL
   navigator.clipboard.writeText(data.fullUrl);
@@ -1272,6 +1275,56 @@ function saveAndSend() {
     });
   } else {
     showToast('URL 복사 완료! (구글시트 연동 미설정)');
+  }
+}
+
+// ── 자동 학습: UTM 생성 시 소스/미디엄/랜딩페이지 자동 추출 & 저장 ──
+function autoLearnFromUtm(data) {
+  let changed = false;
+
+  // 1. 소스/미디엄 자동 추가
+  const src = data.source.toLowerCase();
+  const med = data.medium.toLowerCase();
+  if (src) {
+    if (!SOURCE_MEDIUM_MAP[src]) {
+      SOURCE_MEDIUM_MAP[src] = [];
+      changed = true;
+    }
+    if (med && !SOURCE_MEDIUM_MAP[src].includes(med)) {
+      SOURCE_MEDIUM_MAP[src].push(med);
+      changed = true;
+    }
+  }
+
+  // 2. 랜딩페이지 자동 추가
+  const url = data.baseUrl;
+  if (url && url !== 'https://' && url.startsWith('http')) {
+    const presets = loadUrlPresets();
+    if (!presets.some(p => p.value === url)) {
+      try {
+        const label = new URL(url).hostname.replace('www.', '');
+        presets.push({ label, value: url });
+        localStorage.setItem('sm_url_presets', JSON.stringify(presets));
+        renderUrlSelect();
+        renderLandingManager();
+      } catch(e) {}
+    }
+  }
+
+  // 3. 변경된 소스/미디엄 저장 & 구글시트 동기화
+  if (changed) {
+    localStorage.setItem('sm_medium_map', JSON.stringify(SOURCE_MEDIUM_MAP));
+    renderKeywords();
+    renderSourceSelect();
+    const gasUrl = localStorage.getItem('sm_gas_url');
+    if (gasUrl) {
+      fetch(gasUrl, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'saveSettings', settings: SOURCE_MEDIUM_MAP })
+      });
+    }
   }
 }
 
