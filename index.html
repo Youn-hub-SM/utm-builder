@@ -270,36 +270,42 @@
     border-collapse: collapse;
     font-size: 13px;
     margin-top: 12px;
+    table-layout: fixed;
   }
+  .history-table colgroup .col-date    { width: 148px; }
+  .history-table colgroup .col-source  { width: 110px; }
+  .history-table colgroup .col-medium  { width: 100px; }
+  .history-table colgroup .col-campaign{ width: 130px; }
+  .history-table colgroup .col-note   { width: 120px; }
+  .history-table colgroup .col-url     { width: auto;  }
+  .history-table colgroup .col-actions { width: 68px;  }
   .history-table th {
     text-align: left;
-    padding: 12px 12px;
+    padding: 10px 10px;
     border-bottom: 2px solid var(--border);
     color: var(--text-sub);
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 700;
     white-space: nowrap;
     text-transform: uppercase;
     letter-spacing: 0.5px;
   }
   .history-table td {
-    padding: 13px 12px;
+    padding: 11px 10px;
     border-bottom: 1px solid #f0f0f0;
-    max-width: 200px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    font-size: 15px;
+    font-size: 14px;
   }
   .history-table tr:hover td { background: var(--primary-light); }
   .history-table .url-cell {
-    max-width: 300px;
     color: var(--primary);
     cursor: pointer;
     font-weight: 600;
   }
   .history-table .url-cell:hover { text-decoration: underline; }
-  .history-table .actions { white-space: nowrap; }
+  .history-table .actions { white-space: nowrap; text-align: center; }
   .btn-sm {
     padding: 8px 16px;
     font-size: 14px;
@@ -1352,8 +1358,12 @@ function renderHistory() {
 
   clearRow.style.display = 'flex';
   let html = `<table class="history-table">
+    <colgroup>
+      <col class="col-date"><col class="col-source"><col class="col-medium">
+      <col class="col-campaign"><col class="col-note"><col class="col-url"><col class="col-actions">
+    </colgroup>
     <thead><tr>
-      <th>일시</th><th>Source</th><th>Medium</th><th>Campaign</th><th>비고</th><th>URL</th><th>작업</th>
+      <th>일시</th><th>Source</th><th>Medium</th><th>Campaign</th><th>비고</th><th>URL</th><th></th>
     </tr></thead><tbody>`;
 
   history.forEach((item, idx) => {
