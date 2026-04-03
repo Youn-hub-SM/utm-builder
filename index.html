@@ -885,10 +885,12 @@
 
     <!-- History Tab -->
     <div class="tab-content active" id="tab-history">
-      <div style="display:flex;gap:8px;margin-bottom:14px;">
+      <div style="display:flex;gap:8px;margin-bottom:14px;align-items:center;">
         <input type="text" id="historySearch" placeholder="캠페인, 소스, 미디엄, 비고로 검색..." oninput="renderHistory()" style="flex:1;">
         <button class="btn btn-outline btn-sm" onclick="document.getElementById('historySearch').value='';renderHistory()">초기화</button>
+        <button class="btn btn-outline btn-sm" onclick="syncHistoryFromGas(true)" id="historySyncBtn" title="구글시트에서 최신 기록 불러오기">↻ 동기화</button>
       </div>
+      <div id="historySyncStatus" style="font-size:13px;color:var(--text-sub);margin-bottom:8px;display:none;"></div>
       <div id="historyContainer">
         <div class="empty-state">아직 생성된 UTM URL이 없습니다</div>
       </div>
@@ -1059,6 +1061,31 @@ function doGet(e) {
         .setMimeType(ContentService.MimeType.JSON);
     }
 
+    // ── 히스토리 불러오기 ──
+    if (action === 'getHistory') {
+      var ss = SpreadsheetApp.getActiveSpreadsheet();
+      var sheet = ss.getSheetByName('UTM 로그') || ss.getActiveSheet();
+      var lastRow = sheet.getLastRow();
+      if (lastRow <= 1) {
+        return ContentService
+          .createTextOutput(JSON.stringify({ status: 'ok', history: [] }))
+          .setMimeType(ContentService.MimeType.JSON);
+      }
+      var startRow = Math.max(2, lastRow - 99);
+      var numRows = lastRow - startRow + 1;
+      var data = sheet.getRange(startRow, 1, numRows, 9).getValues();
+      data.reverse();
+      var history = data.map(function(row) {
+        return {
+          date: row[0], baseUrl: row[1], source: row[2], medium: row[3],
+          campaign: row[4], content: row[5], term: row[6], note: row[7], fullUrl: row[8]
+        };
+      });
+      return ContentService
+        .createTextOutput(JSON.stringify({ status: 'ok', history: history }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+
     return ContentService
       .createTextOutput(JSON.stringify({ status: 'ok', message: '씨몬스터 UTM 빌더 연동 활성화됨' }))
       .setMimeType(ContentService.MimeType.JSON);
@@ -1076,12 +1103,12 @@ document.addEventListener('DOMContentLoaded', () => {
   if (savedGasUrl) {
     document.getElementById('gasUrl').value = savedGasUrl;
     updateGasStatus(true);
-    // 페이지 로드 시 최신 팀 설정 자동 동기화
     autoSyncSettings(savedGasUrl);
+    syncHistoryFromGas(false); // 자동 동기화 (조용히)
   }
   // Render script block
   document.getElementById('scriptBlock').textContent = GAS_CODE;
-  // Load history
+  // Load history (로컬 먼저 표시, GAS에서 덮어쓰기)
   renderHistory();
   // Render keywords & source select
   renderKeywords();
@@ -1101,7 +1128,45 @@ function autoSyncSettings(gasUrl) {
         renderSourceSelect();
       }
     })
-    .catch(() => {}); // 조용히 실패
+    .catch(() => {});
+}
+
+function syncHistoryFromGas(manual = false) {
+  const gasUrl = localStorage.getItem('sm_gas_url');
+  if (!gasUrl) {
+    if (manual) showToast('구글시트 연동 URL을 먼저 설정해주세요');
+    return;
+  }
+  const statusEl = document.getElementById('historySyncStatus');
+  if (manual) {
+    statusEl.style.display = 'block';
+    statusEl.textContent = '구글시트에서 불러오는 중...';
+  }
+  fetch(gasUrl + '?action=getHistory')
+    .then(r => r.json())
+    .then(data => {
+      if (data.status === 'ok' && Array.isArray(data.history)) {
+        localStorage.setItem('sm_utm_history', JSON.stringify(data.history));
+        renderHistory();
+        updateCampaignSuggestions();
+        if (manual) {
+          statusEl.textContent = `✓ 총 ${data.history.length}개 기록 동기화 완료`;
+          setTimeout(() => { statusEl.style.display = 'none'; }, 3000);
+          showToast(`히스토리 ${data.history.length}개 동기화 완료`);
+        }
+      } else {
+        if (manual) {
+          statusEl.style.display = 'none';
+          showToast('불러올 기록이 없습니다');
+        }
+      }
+    })
+    .catch(() => {
+      if (manual) {
+        statusEl.style.display = 'none';
+        showToast('동기화 실패 — 연동 URL을 확인해주세요');
+      }
+    });
 }
 
 // ── URL Preset ──
