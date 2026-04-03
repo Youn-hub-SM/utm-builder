@@ -211,6 +211,9 @@
     color: var(--text);
     min-height: 56px;
     line-height: 2;
+    user-select: none;
+    -webkit-user-select: none;
+    cursor: default;
   }
   .preview-box .param-key { color: #1a1a1a; font-weight: 800; }
   .preview-box .param-val { color: #2E7D32; }
@@ -757,7 +760,7 @@
     </div>
     <div class="btn-row">
       <button class="btn btn-success" onclick="generateUtm()" id="generateBtn" disabled>
-        UTM 링크 생성
+        UTM 복사하기
       </button>
       <button class="btn btn-outline" onclick="showQr()" id="qrBtn" disabled>
         QR 코드
@@ -1195,7 +1198,7 @@ function generateUtm() {
 
   setTimeout(() => {
     btn.disabled = false;
-    btn.textContent = 'UTM 링크 생성';
+    btn.textContent = 'UTM 복사하기';
   }, 1200);
 }
 
