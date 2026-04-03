@@ -550,6 +550,75 @@
     margin: 4px 0 20px;
   }
 
+  /* Bulk generation */
+  .bulk-toggle-header {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    user-select: none;
+  }
+  .bulk-toggle-header .card-title { margin-bottom: 0; cursor: pointer; }
+  .bulk-toggle-badge {
+    margin-left: 10px;
+    font-size: 13px;
+    font-weight: 400;
+    color: var(--text-sub);
+  }
+  .bulk-toggle-btn {
+    margin-left: auto;
+    font-size: 13px;
+    color: var(--text-sub);
+    font-weight: 500;
+  }
+  .bulk-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    margin-top: 4px;
+  }
+  .bulk-table th {
+    text-align: left;
+    padding: 10px 8px;
+    border-bottom: 2px solid var(--border);
+    color: var(--text-sub);
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+  }
+  .bulk-table td {
+    padding: 5px 4px;
+    border-bottom: 1px solid #f4f4f4;
+    vertical-align: middle;
+  }
+  .bulk-input {
+    width: 100%;
+    padding: 7px 10px;
+    border: 1.5px solid var(--border);
+    border-radius: 7px;
+    font-size: 13px;
+    background: #fafafa;
+    color: var(--text);
+    font-family: inherit;
+    transition: border-color 0.15s;
+  }
+  .bulk-input:focus { outline: none; border-color: var(--primary); background: #fff; }
+  .bulk-url-cell {
+    font-family: 'Consolas', monospace;
+    font-size: 12px;
+    color: var(--primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 220px;
+    cursor: pointer;
+    padding: 4px 6px;
+    border-radius: 5px;
+  }
+  .bulk-url-cell:hover { background: var(--primary-light); }
+  .bulk-url-empty { color: var(--text-sub); padding: 4px 6px; font-size: 12px; }
+
   @media (max-width: 640px) {
     .guide-params { grid-template-columns: 1fr; }
     .input-wrapper { flex-direction: column; }
@@ -768,6 +837,40 @@
       <button class="btn btn-outline" onclick="resetForm()">
         초기화
       </button>
+    </div>
+  </div>
+
+  <!-- 대량 생성 -->
+  <div class="card">
+    <div class="bulk-toggle-header" onclick="toggleBulk()">
+      <div class="card-title" style="margin-bottom:0">대량 생성</div>
+      <span class="bulk-toggle-badge">여러 채널 UTM을 한번에</span>
+      <span class="bulk-toggle-btn" id="bulkToggleBtn">펼치기 ▼</span>
+    </div>
+    <div id="bulkSection" style="display:none; margin-top:20px;">
+      <div style="overflow-x:auto;">
+        <table class="bulk-table" id="bulkTable">
+          <thead><tr>
+            <th style="min-width:170px">랜딩페이지 URL</th>
+            <th style="min-width:100px">소스</th>
+            <th style="min-width:100px">미디엄</th>
+            <th style="min-width:130px">캠페인</th>
+            <th style="min-width:100px">콘텐츠</th>
+            <th style="min-width:100px">키워드</th>
+            <th style="min-width:100px">비고</th>
+            <th style="min-width:220px">생성된 URL</th>
+            <th style="width:36px"></th>
+          </tr></thead>
+          <tbody id="bulkBody"></tbody>
+        </table>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-outline btn-sm" onclick="addBulkRow()">+ 행 추가</button>
+        <button class="btn btn-outline btn-sm" onclick="fillBulkFromForm()">현재 값 가져오기</button>
+        <button class="btn btn-primary btn-sm" onclick="copyAllBulk()">전체 URL 복사</button>
+        <button class="btn btn-outline btn-sm" onclick="exportBulkCsv()">CSV 다운로드</button>
+        <button class="btn btn-success btn-sm" onclick="sendBulkToGas()">구글시트 전송</button>
+      </div>
     </div>
   </div>
 
@@ -1684,6 +1787,157 @@ function copyScript() {
   navigator.clipboard.writeText(GAS_CODE).then(() => {
     showToast('Apps Script 코드가 복사되었습니다!');
   });
+}
+
+// ── 대량 생성 ──
+let bulkRowCount = 0;
+
+function toggleBulk() {
+  const section = document.getElementById('bulkSection');
+  const btn = document.getElementById('bulkToggleBtn');
+  const isHidden = section.style.display === 'none';
+  section.style.display = isHidden ? 'block' : 'none';
+  btn.textContent = isHidden ? '접기 ▲' : '펼치기 ▼';
+  if (isHidden && document.getElementById('bulkBody').children.length === 0) {
+    addBulkRow();
+  }
+}
+
+function addBulkRow(data = {}) {
+  const id = ++bulkRowCount;
+  const tbody = document.getElementById('bulkBody');
+  const tr = document.createElement('tr');
+  tr.id = `bulkRow${id}`;
+  tr.innerHTML = `
+    <td><input class="bulk-input" placeholder="https://" value="${escHtml(data.baseUrl||'')}" oninput="updateBulkUrl(${id})"></td>
+    <td><input class="bulk-input" placeholder="naver" value="${escHtml(data.source||'')}" oninput="updateBulkUrl(${id})"></td>
+    <td><input class="bulk-input" placeholder="cpc" value="${escHtml(data.medium||'')}" oninput="updateBulkUrl(${id})"></td>
+    <td><input class="bulk-input" placeholder="캠페인명" value="${escHtml(data.campaign||'')}" oninput="updateBulkUrl(${id})"></td>
+    <td><input class="bulk-input" placeholder="선택" value="${escHtml(data.content||'')}" oninput="updateBulkUrl(${id})"></td>
+    <td><input class="bulk-input" placeholder="선택" value="${escHtml(data.term||'')}" oninput="updateBulkUrl(${id})"></td>
+    <td><input class="bulk-input" placeholder="메모" value="${escHtml(data.note||'')}" oninput="updateBulkUrl(${id})"></td>
+    <td><div id="bulkUrl${id}" class="bulk-url-empty" onclick="copyBulkUrl(${id})">—</div></td>
+    <td><button class="btn btn-danger btn-sm" style="padding:5px 10px;font-size:13px" onclick="deleteBulkRow(${id})">✕</button></td>
+  `;
+  tbody.appendChild(tr);
+  updateBulkUrl(id);
+}
+
+function getBulkRowData(id) {
+  const row = document.getElementById(`bulkRow${id}`);
+  if (!row) return null;
+  const inputs = row.querySelectorAll('.bulk-input');
+  return {
+    baseUrl:  inputs[0].value.trim(),
+    source:   inputs[1].value.trim(),
+    medium:   inputs[2].value.trim(),
+    campaign: inputs[3].value.trim(),
+    content:  inputs[4].value.trim(),
+    term:     inputs[5].value.trim(),
+    note:     inputs[6].value.trim(),
+  };
+}
+
+function buildBulkUrl(data) {
+  if (!data.baseUrl || !data.source || !data.medium) return null;
+  const params = [];
+  if (data.source)   params.push(`utm_source=${encodeURIComponent(data.source)}`);
+  if (data.medium)   params.push(`utm_medium=${encodeURIComponent(data.medium)}`);
+  if (data.campaign) params.push(`utm_campaign=${encodeURIComponent(data.campaign)}`);
+  if (data.content)  params.push(`utm_content=${encodeURIComponent(data.content)}`);
+  if (data.term)     params.push(`utm_term=${encodeURIComponent(data.term)}`);
+  const sep = data.baseUrl.includes('?') ? '&' : '?';
+  return data.baseUrl + sep + params.join('&');
+}
+
+function updateBulkUrl(id) {
+  const data = getBulkRowData(id);
+  const cell = document.getElementById(`bulkUrl${id}`);
+  if (!cell) return;
+  const url = buildBulkUrl(data);
+  if (url) {
+    cell.className = 'bulk-url-cell';
+    cell.textContent = url;
+    cell.title = '클릭하여 복사';
+  } else {
+    cell.className = 'bulk-url-empty';
+    cell.textContent = '—';
+    cell.title = '랜딩페이지·소스·미디엄 필수';
+  }
+}
+
+function copyBulkUrl(id) {
+  const cell = document.getElementById(`bulkUrl${id}`);
+  if (!cell || cell.textContent === '—') return;
+  navigator.clipboard.writeText(cell.textContent).then(() => showToast('URL 복사됨'));
+}
+
+function deleteBulkRow(id) {
+  const row = document.getElementById(`bulkRow${id}`);
+  if (row) row.remove();
+}
+
+function fillBulkFromForm() {
+  addBulkRow({
+    baseUrl:  document.getElementById('baseUrl').value.trim(),
+    source:   document.getElementById('utmSource').value.trim(),
+    medium:   document.getElementById('utmMedium').value.trim(),
+    campaign: document.getElementById('utmCampaign').value.trim(),
+    content:  document.getElementById('utmContent').value.trim(),
+    term:     document.getElementById('utmTerm').value.trim(),
+    note:     document.getElementById('utmNote').value.trim(),
+  });
+}
+
+function getAllBulkRows() {
+  return Array.from(document.querySelectorAll('#bulkBody tr'))
+    .map(row => {
+      const id = row.id.replace('bulkRow', '');
+      const data = getBulkRowData(id);
+      const url = buildBulkUrl(data);
+      return data && url ? { ...data, fullUrl: url } : null;
+    }).filter(Boolean);
+}
+
+function copyAllBulk() {
+  const rows = getAllBulkRows();
+  if (!rows.length) { showToast('생성된 URL이 없습니다'); return; }
+  navigator.clipboard.writeText(rows.map(r => r.fullUrl).join('\n'))
+    .then(() => showToast(`${rows.length}개 URL이 복사되었습니다`));
+}
+
+function exportBulkCsv() {
+  const rows = getAllBulkRows();
+  if (!rows.length) { showToast('생성된 URL이 없습니다'); return; }
+  const BOM = '\uFEFF';
+  const headers = '기본URL,Source,Medium,Campaign,Content,Term,비고,전체URL\n';
+  const body = rows.map(r =>
+    [r.baseUrl, r.source, r.medium, r.campaign, r.content, r.term, r.note, r.fullUrl]
+      .map(v => `"${(v||'').replace(/"/g,'""')}"`)
+      .join(',')
+  ).join('\n');
+  const blob = new Blob([BOM + headers + body], { type: 'text/csv;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `utm_bulk_${new Date().toLocaleDateString('ko-KR').replace(/[\. ]/g,'').replace(/\.$/,'')}.csv`;
+  a.click();
+}
+
+function sendBulkToGas() {
+  const gasUrl = localStorage.getItem('sm_gas_url');
+  if (!gasUrl) { showToast('구글시트 연동 URL을 먼저 설정해주세요'); return; }
+  const rows = getAllBulkRows();
+  if (!rows.length) { showToast('생성된 URL이 없습니다'); return; }
+  const date = new Date().toLocaleString('ko-KR');
+  rows.forEach(r => {
+    fetch(gasUrl, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...r, date })
+    });
+  });
+  showToast(`${rows.length}개 구글시트에 전송했습니다`);
 }
 
 // ── Utils ──
